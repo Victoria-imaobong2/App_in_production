@@ -3,12 +3,6 @@ package com.pm.patientservice.model;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
-import lombok.*;
-import jakarta.persistence.Column; // Fixes @Column error for Spring Boot 3
-// If you use other JPA annotations, you might also need:
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-
 import java.time.LocalDate;
 import java.util.UUID;
 
@@ -24,7 +18,7 @@ public class Patient {
     @NotNull
     @Email
     @Column(unique = true)
-    private  String email;
+    private String email;
 
     @NotNull
     private String phone;
@@ -34,6 +28,20 @@ public class Patient {
 
     @NotNull
     private LocalDate registeredDate;
+
+    private String address;
+
+    public String getAddress() {
+        return address;
+    }
+
+    public void setAddress(String address) {
+        this.address = address;
+    }
+
+    // 1. Added No-Args Constructor (Required by JPA)
+    public Patient() {
+    }
 
     public UUID getId() {
         return id;
@@ -67,6 +75,7 @@ public class Patient {
         this.phone = phone;
     }
 
+    // 2. Fixed return type from String to LocalDate
     public LocalDate getDateOfBirth() {
         return dateOfBirth;
     }
@@ -82,4 +91,6 @@ public class Patient {
     public void setRegisteredDate(LocalDate registeredDate) {
         this.registeredDate = registeredDate;
     }
+
+    // 3. Removed the broken getAddress() method unless you add a 'private String address' field.
 }
