@@ -20,10 +20,11 @@ public class PatientRequestDTO {
     @NotBlank(message = "Address is required")
     private String address;
 
-    @NotBlank(message = "Date of Birth is required")
+   @NotBlank(message = "Date of Birth is required")
     private String dateOfBirth;
 
-    @NotNull(message = "Registerd datte is required")
+    @NotBlank(groups = CreatePatientValidationGroup.class, message =
+            "Registered date is required")
     private String registeredDate;
 
     public String getName() {

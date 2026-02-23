@@ -2,43 +2,80 @@ package com.pm.patientservice.service;
 
 import com.pm.patientservice.dto.PatientRequestDTO;
 import com.pm.patientservice.dto.PatientResponseDTO;
+import com.pm.patientservice.exception.EmailAlreadyExistsException;
+import com.pm.patientservice.exception.PatientNotFoundException;
 import com.pm.patientservice.mapper.PatientMapper;
 import com.pm.patientservice.model.Patient;
 import com.pm.patientservice.repository.PatientRepository;
-import jakarta.validation.Valid;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
 
 @Service
+@Transactional
 public class PatientService {
 
     private final PatientRepository patientRepository;
-    private final PatientMapper patientMapper; // 1. Added the mapper field
 
-    // 2. Updated constructor to inject both dependencies
-    public PatientService(PatientRepository patientRepository, PatientMapper patientMapper) {
+    public PatientService(PatientRepository patientRepository) {
         this.patientRepository = patientRepository;
-        this.patientMapper = patientMapper;
     }
 
+    @Transactional(readOnly = true)
     public List<PatientResponseDTO> getPatients() {
-        List<Patient> patients = patientRepository.findAll();
-
-        // 3. Use the injected 'patientMapper' instance instead of the Class name
-        return patients.stream()
+        return patientRepository.findAll().stream()
                 .map(PatientMapper::toDTO)
-                .toList(); // Note: .toList() works in Java 16+
+                .toList();
     }
 
-    public PatientResponseDTO createPatient (PatientRequestDTO patientRequestDTO)
-    {
-        Patient newPatient = patientRepository.save(
-                PatientMapper.toModel(patientRequestDTO));
+    public PatientResponseDTO createPatient(PatientRequestDTO patientRequestDTO) throws EmailAlreadyExistsException {
+        if(patientRepository.existsByEmail(patientRequestDTO.getEmail())) {
+            throw new EmailAlreadyExistsException("Email already exists: " + patientRequestDTO.getEmail());
+        }
 
-        return PatientMapper.toDTO(newPatient);
+        Patient patient = PatientMapper.toModel(patientRequestDTO);
+
+        if (patient.getRegisteredDate() == null) {
+            patient.setRegisteredDate(LocalDate.now());
+        }
+
+        Patient savedPatient = patientRepository.save(patient);
+        return PatientMapper.toDTO(savedPatient);
     }
 
+    public PatientResponseDTO updatePatient(UUID id, PatientRequestDTO patientRequestDTO) throws EmailAlreadyExistsException {
+
+        // 1. Check if patient exists
+        Patient patient = patientRepository.findById(id).orElseThrow(
+                () -> new PatientNotFoundException("Patient not found with ID: " + id));
+
+        // 2. Logic Fix: Check if the new email is taken by ANY OTHER patient
+        // We use idNot to exclude the current patient from the search
+        if (patientRepository.existsByEmailAndIdNot(patientRequestDTO.getEmail(), id)) {
+            throw new EmailAlreadyExistsException("Email is already in use by another patient: " + patientRequestDTO.getEmail());
+        }
+
+        // 3. Update fields
+        patient.setName(patientRequestDTO.getName());
+        patient.setAddress(patientRequestDTO.getAddress());
+        patient.setEmail(patientRequestDTO.getEmail());
+        patient.setDateOfBirth(LocalDate.parse(patientRequestDTO.getDateOfBirth()));
+
+        // Handle Date parsing
+        if (patientRequestDTO.getDateOfBirth() != null) {
+            patient.setDateOfBirth(LocalDate.parse(patientRequestDTO.getDateOfBirth()));
+        }
+
+        // 4. Save and return (This was unreachable/missing before)
+        Patient updatedPatient = patientRepository.save(patient);
+        return PatientMapper.toDTO(updatedPatient);
+    }
+
+    public void deletePatient(UUID id) {
+        patientRepository.deleteById(id);
+    }
 
 }
